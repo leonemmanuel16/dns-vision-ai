@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   go2rtc:
     image: alexxit/go2rtc:latest
@@ -19,25 +17,23 @@ services:
       - HEALTH_CHECK_INTERVAL=60
       - ONVIF_DEFAULT_USER=${ONVIF_DEFAULT_USER:-admin}
       - ONVIF_DEFAULT_PASS=${ONVIF_DEFAULT_PASS:-admin123}
+      - GO2RTC_CONFIG_PATH=/config/go2rtc.yaml
+    volumes:
+      - ./config:/config
     depends_on: [redis, postgres]
 
   detector:
     build: ./services/detector
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - REDIS_URL=redis://redis:6379
       - POSTGRES_URL=postgresql://vision:${DB_PASSWORD}@postgres:5432/visionai
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_USER}
       - MINIO_SECRET_KEY=${MINIO_PASSWORD}
-      - MODEL_NAME=${MODEL_NAME:-yolov10n}
+      - MODEL_NAME=${MODEL_NAME:-yolov8n}
       - DETECTION_FPS=${DETECTION_FPS:-5}
       - CONFIDENCE_THRESHOLD=${CONFIDENCE_THRESHOLD:-0.5}
       - GO2RTC_URL=http://host.docker.internal:1984
@@ -49,7 +45,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - POSTGRES_URL=postgresql://vision:${DB_PASSWORD}@postgres:5432/visionai
+      - POSTGRES_URL=postgresql+asyncpg://vision:${DB_PASSWORD}@postgres:5432/visionai
       - REDIS_URL=redis://redis:6379
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_USER}
@@ -59,14 +55,15 @@ services:
     depends_on: [postgres, redis, minio]
 
   dashboard:
-    build: ./services/dashboard
+    build:
+      context: ./services/dashboard
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        - NEXT_PUBLIC_GO2RTC_URL=${NEXT_PUBLIC_GO2RTC_URL:-http://localhost:1984}
+        - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://localhost:8000/ws}
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_GO2RTC_URL=http://localhost:1984
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
     depends_on: [api]
 
   postgres:

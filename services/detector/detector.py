@@ -5,7 +5,7 @@ from ultralytics import YOLO
 
 logger = structlog.get_logger()
 
-MODEL_NAME = os.getenv("MODEL_NAME", "yolov10n")
+MODEL_NAME = os.getenv("MODEL_NAME", "yolov8n")
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
 
 # Classes we care about for security
@@ -28,7 +28,11 @@ class Detector:
         if not os.path.exists(model_path):
             logger.info("downloading_model", model=MODEL_NAME)
             self.model = YOLO(f"{MODEL_NAME}.pt")
-            self.model.save(model_path)
+            # Export downloaded model to models dir for caching
+            import shutil
+            downloaded = f"{MODEL_NAME}.pt"
+            if os.path.exists(downloaded):
+                shutil.move(downloaded, model_path)
         else:
             self.model = YOLO(model_path)
         logger.info("model_loaded", model=MODEL_NAME)
