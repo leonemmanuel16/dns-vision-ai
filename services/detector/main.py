@@ -147,11 +147,18 @@ class DetectionPipeline:
                         matching_zones = self.zone_manager.check_detection(camera_id, obj.bbox, w, h)
                         zone_id = matching_zones[0]["id"] if matching_zones else None
 
+                        # Check if class is relevant to the zone
+                        if matching_zones:
+                            zone = matching_zones[0]
+                            detect_classes = zone.get("detect_classes", [])
+                            if detect_classes and obj.label not in detect_classes:
+                                continue
+
                         # Encode snapshot
                         _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                         snapshot_path = self.publisher.upload_snapshot(jpeg.tobytes(), camera_id)
 
-                        # Publish event
+                        # Publish base detection event
                         await self.publisher.publish_event(
                             camera_id=camera_id,
                             event_type=event_type,
@@ -162,6 +169,20 @@ class DetectionPipeline:
                             zone_id=zone_id,
                             tracker_id=obj.track_id,
                         )
+
+                        # Also publish zone_crossing event if inside a zone
+                        if matching_zones:
+                            for zone in matching_zones:
+                                await self.publisher.publish_event(
+                                    camera_id=camera_id,
+                                    event_type="zone_crossing",
+                                    label=f"{obj.label} in {zone.get('name', 'zone')}",
+                                    confidence=obj.confidence,
+                                    bbox=obj.bbox,
+                                    snapshot_path=snapshot_path,
+                                    zone_id=zone["id"],
+                                    tracker_id=obj.track_id,
+                                )
 
                 except Exception as e:
                     logger.error("detection_error", camera_id=camera_id, error=str(e))
