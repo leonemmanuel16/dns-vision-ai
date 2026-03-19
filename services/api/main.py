@@ -1,3 +1,4 @@
+import asyncio
 import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -28,7 +29,18 @@ async def lifespan(app: FastAPI):
         logger.info("minio_connected")
     except Exception as e:
         logger.warning("minio_connection_failed", error=str(e))
+
+    # Start alert consumer as background task
+    from services.alert_consumer import start_alert_consumer
+    alert_task = asyncio.create_task(start_alert_consumer())
+
     yield
+
+    alert_task.cancel()
+    try:
+        await alert_task
+    except asyncio.CancelledError:
+        pass
     logger.info("api_shutting_down")
 
 
