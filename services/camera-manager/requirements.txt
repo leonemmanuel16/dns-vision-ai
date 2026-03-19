@@ -1,0 +1,8 @@
+onvif-zeep==0.2.12
+zeep>=4.2.1
+aiohttp>=3.9.0
+redis>=5.0.0
+asyncpg>=0.29.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+structlog>=24.1.0
