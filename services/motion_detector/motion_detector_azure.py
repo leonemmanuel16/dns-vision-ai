@@ -31,13 +31,14 @@ FRAMES_PER_EVENT = int(os.environ.get("FRAMES_PER_EVENT", "5"))
 FRAME_INTERVAL = float(os.environ.get("FRAME_INTERVAL", "1.0"))
 CHECK_INTERVAL = float(os.environ.get("CHECK_INTERVAL", "1.5"))
 RESIZE_WIDTH = int(os.environ.get("RESIZE_WIDTH", "640"))
-MIN_PERSON_CONFIDENCE = float(os.environ.get("MIN_PERSON_CONFIDENCE", "0.25"))
+MIN_PERSON_CONFIDENCE = float(os.environ.get("MIN_PERSON_CONFIDENCE", "0.55"))
 STORE_ALL_MOTION = os.environ.get("STORE_ALL_MOTION", "true").lower() == "true"
 RECORD_VIDEO_CLIPS = os.environ.get("RECORD_VIDEO_CLIPS", "false").lower() == "true"
 CAPTURE_EXTRA_FRAMES = os.environ.get("CAPTURE_EXTRA_FRAMES", "true").lower() == "true"
 SEND_WHATSAPP_ALERTS = os.environ.get("SEND_WHATSAPP_ALERTS", "false").lower() == "true"
-USE_AZURE_VALIDATION = os.environ.get("USE_AZURE_VALIDATION", "false").lower() == "true"
+USE_AZURE_VALIDATION = os.environ.get("USE_AZURE_VALIDATION", "true").lower() == "true"
 SEND_MOTION_FRAME_WHATSAPP = os.environ.get("SEND_MOTION_FRAME_WHATSAPP", "true").lower() == "true"
+ALERT_ONLY_IF_AZURE_PERSON = os.environ.get("ALERT_ONLY_IF_AZURE_PERSON", "true").lower() == "true"
 PUBLISH_DASHBOARD_EVENTS = os.environ.get("PUBLISH_DASHBOARD_EVENTS", "true").lower() == "true"
 INGEST_API_URL = os.environ.get("INGEST_API_URL", "http://127.0.0.1:8000/api/ingest/motion")
 INGEST_TOKEN = os.environ.get("INGEST_TOKEN", "")
@@ -119,16 +120,14 @@ def azure_check_person(image_bytes):
         resp = urllib.request.urlopen(req, context=ctx, timeout=15)
         result = json.loads(resp.read().decode())
 
-        # Check people detection
+        # Check people detection ONLY (stricter, avoids false positives from tags/captions)
         people = result.get("peopleResult", {}).get("values", [])
         confident_people = [p for p in people if p.get("confidence", 0) >= MIN_PERSON_CONFIDENCE]
 
-        # Double check with tags
+        # Keep tags only for logging/debug, NOT for decision
         tags = result.get("tagsResult", {}).get("values", [])
-        tag_names = {t["name"].lower(): t["confidence"] for t in tags}
-        person_tags = any(t in tag_names for t in ["person", "man", "woman", "people", "human", "boy", "girl"])
 
-        has_person = len(confident_people) > 0 or person_tags
+        has_person = len(confident_people) > 0
         caption = result.get("captionResult", {}).get("text", "")
 
         return has_person, {
@@ -349,6 +348,7 @@ def run():
     log.info(f"🎬 Guardar clips 10s: {'✅ Sí' if RECORD_VIDEO_CLIPS else '❌ No'}")
     log.info(f"📸 Frames extra: {'✅ Sí' if CAPTURE_EXTRA_FRAMES else '❌ No'}")
     log.info(f"📱 Enviar frame por WhatsApp: {'✅ Sí' if SEND_MOTION_FRAME_WHATSAPP else '❌ No'}")
+    log.info(f"👤 Alerta solo si Azure=persona: {'✅ Sí' if ALERT_ONLY_IF_AZURE_PERSON else '❌ No'}")
     log.info(f"📊 Publicar en dashboard: {'✅ Sí' if PUBLISH_DASHBOARD_EVENTS else '❌ No'}")
     log.info(f"⏱️  Cooldown: {COOLDOWN_SECONDS}s | Check: {CHECK_INTERVAL}s")
     log.info("=" * 60)
@@ -457,7 +457,15 @@ def run():
 
             publish_dashboard_event(event_id, timestamp, trigger_path, area, num_contours)
 
-            if SEND_MOTION_FRAME_WHATSAPP:
+            should_send_whatsapp = SEND_MOTION_FRAME_WHATSAPP
+            if ALERT_ONLY_IF_AZURE_PERSON:
+                should_send_whatsapp = (
+                    SEND_MOTION_FRAME_WHATSAPP and
+                    USE_AZURE_VALIDATION and
+                    has_person is True
+                )
+
+            if should_send_whatsapp:
                 send_whatsapp_motion_frame(event_id, timestamp, trigger_path)
 
             log.info(f"  ✅ Movimiento guardado: {trigger_file}")
