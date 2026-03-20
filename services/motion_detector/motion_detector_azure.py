@@ -126,6 +126,8 @@ def azure_check_person(image_bytes):
 
         # Keep tags only for logging/debug, NOT for decision
         tags = result.get("tagsResult", {}).get("values", [])
+        tag_names = {t["name"].lower(): t["confidence"] for t in tags}
+        person_tags = any(t in tag_names for t in ["person", "man", "woman", "people", "human", "boy", "girl"])
 
         has_person = len(confident_people) > 0
         caption = result.get("captionResult", {}).get("text", "")
