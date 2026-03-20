@@ -19,6 +19,7 @@ echo "🎯 DNS Vision AI — Starting services..."
 
 # Kill existing
 pkill -f "motion_detector_azure" 2>/dev/null
+pkill -f "motion_detector_fisheye" 2>/dev/null
 pkill -f "heatmap_generator" 2>/dev/null
 pkill -f "zone_editor" 2>/dev/null
 sleep 1
@@ -26,6 +27,11 @@ sleep 1
 # Start detector
 echo "👀 Starting motion detector..."
 nohup python3 $BASE/services/motion_detector/motion_detector_azure.py > $BASE/events/detector.log 2>&1 &
+echo "  PID: $!"
+
+# Start fisheye detector
+echo "🐟 Starting fisheye detector..."
+nohup python3 $BASE/services/motion_detector/motion_detector_fisheye.py > $BASE/events/detector_fisheye.log 2>&1 &
 echo "  PID: $!"
 
 # Start heatmap generator

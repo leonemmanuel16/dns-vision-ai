@@ -260,10 +260,12 @@ def send_whatsapp_alert(event_id, azure_info, timestamp, snapshot_path):
         log.warning(f"  ⚠️ WhatsApp error: {e}")
 
 
+WORKSPACE_DIR = "/home/manny/.openclaw/workspace"
+
 def send_whatsapp_motion_frame(event_id, timestamp, snapshot_path):
     """Envía frame de movimiento por WhatsApp (sin validación Azure)."""
     try:
-        import subprocess
+        import subprocess, shutil
         time_str = timestamp.strftime("%H:%M:%S")
         date_str = timestamp.strftime("%d/%m/%Y")
         msg = (
@@ -272,17 +274,26 @@ def send_whatsapp_motion_frame(event_id, timestamp, snapshot_path):
             f"📅 {date_str} — {time_str}\n"
             f"🆔 `{event_id}`"
         )
+        # Copy to workspace (allowed dir for WhatsApp)
+        ws_path = f"{WORKSPACE_DIR}/{os.path.basename(snapshot_path)}"
+        shutil.copy2(snapshot_path, ws_path)
+        
         result = subprocess.run([
             "openclaw", "message", "send",
             "--channel", "whatsapp",
             "-t", "+5218186651436",
             "-m", msg,
-            "--media", snapshot_path
+            "--media", ws_path
         ], timeout=15, capture_output=True, text=True)
         if result.returncode == 0:
             log.info("  📱 Frame de movimiento enviado por WhatsApp ✅")
         else:
             log.warning(f"  ⚠️ WhatsApp returncode {result.returncode}: {result.stderr[:200]}")
+        # Cleanup workspace copy
+        try:
+            os.remove(ws_path)
+        except:
+            pass
     except Exception as e:
         log.warning(f"  ⚠️ WhatsApp error: {e}")
 
