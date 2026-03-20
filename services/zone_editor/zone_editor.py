@@ -104,8 +104,8 @@ body { background:#ffffff; color:#333333; font-family:'Segoe UI',sans-serif; }
 
 <div class="header">
     <div style="display:flex;align-items:center;gap:12px;">
-        <img src="/api/logo" style="height:36px;" alt="DNS" />
-        <h1 style="margin:0;">🎯 DNS Vision AI</h1>
+        <img src="/api/logo" style="height:50px;" alt="DNS" />
+        <span style="font-size:22px;font-weight:700;color:#3b82f6;">Vision AI</span>
     </div>
     <div class="tabs">
         <button class="tab active" onclick="showPanel('zones')">📐 Zonas</button>

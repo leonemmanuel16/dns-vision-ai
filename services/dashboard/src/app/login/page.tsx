@@ -33,7 +33,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">DNS Vision AI</CardTitle>
+          <div className="flex justify-center mb-4">
+            <img src="/dns_logo.png" alt="DNS" className="h-20" />
+          </div>
+          <CardTitle className="text-2xl">Vision AI</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
