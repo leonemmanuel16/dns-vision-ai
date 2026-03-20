@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from config import get_settings
 from middleware.cors import setup_cors
-from routers import auth, cameras, events, zones, alerts, dashboard, ws
+from routers import auth, cameras, events, zones, alerts, dashboard, ws, ingest
 
 structlog.configure(
     processors=[
@@ -61,6 +61,7 @@ app.include_router(zones.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(ws.router)
+app.include_router(ingest.router, prefix="/api")
 
 
 @app.get("/api/health")

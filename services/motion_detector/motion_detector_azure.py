@@ -10,6 +10,7 @@ import time
 import json
 import logging
 import urllib.request
+import urllib.error
 import ssl
 import numpy as np
 from datetime import datetime
@@ -37,6 +38,9 @@ CAPTURE_EXTRA_FRAMES = os.environ.get("CAPTURE_EXTRA_FRAMES", "true").lower() ==
 SEND_WHATSAPP_ALERTS = os.environ.get("SEND_WHATSAPP_ALERTS", "false").lower() == "true"
 USE_AZURE_VALIDATION = os.environ.get("USE_AZURE_VALIDATION", "false").lower() == "true"
 SEND_MOTION_FRAME_WHATSAPP = os.environ.get("SEND_MOTION_FRAME_WHATSAPP", "true").lower() == "true"
+PUBLISH_DASHBOARD_EVENTS = os.environ.get("PUBLISH_DASHBOARD_EVENTS", "true").lower() == "true"
+INGEST_API_URL = os.environ.get("INGEST_API_URL", "http://127.0.0.1:8000/api/ingest/motion")
+INGEST_TOKEN = os.environ.get("INGEST_TOKEN", "")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -283,6 +287,45 @@ def send_whatsapp_motion_frame(event_id, timestamp, snapshot_path):
         log.warning(f"  ⚠️ WhatsApp error: {e}")
 
 
+def publish_dashboard_event(event_id, timestamp, snapshot_path, motion_area, contours):
+    """Publica evento al API para que aparezca en dashboard."""
+    if not PUBLISH_DASHBOARD_EVENTS:
+        return
+    try:
+        payload = {
+            "event_id": event_id,
+            "camera_name": CAMERA_NAME,
+            "camera_ip": CAMERA_IP,
+            "event_type": "motion",
+            "label": "Movimiento",
+            "occurred_at": timestamp.isoformat(),
+            "snapshot_path": snapshot_path,
+            "metadata": {
+                "motion_area": motion_area,
+                "contours": contours,
+                "source": "motion_detector_azure.py"
+            }
+        }
+        req = urllib.request.Request(
+            INGEST_API_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        if INGEST_TOKEN:
+            req.add_header("X-Ingest-Token", INGEST_TOKEN)
+
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status != 200:
+                log.warning(f"  ⚠️ Ingest status: {resp.status}")
+            else:
+                log.info("  📊 Evento publicado en dashboard")
+    except urllib.error.HTTPError as e:
+        log.warning(f"  ⚠️ Ingest HTTP {e.code}: {e.reason}")
+    except Exception as e:
+        log.warning(f"  ⚠️ Ingest error: {e}")
+
+
 def run():
     ensure_dirs()
 
@@ -295,6 +338,7 @@ def run():
     log.info(f"🎬 Guardar clips 10s: {'✅ Sí' if RECORD_VIDEO_CLIPS else '❌ No'}")
     log.info(f"📸 Frames extra: {'✅ Sí' if CAPTURE_EXTRA_FRAMES else '❌ No'}")
     log.info(f"📱 Enviar frame por WhatsApp: {'✅ Sí' if SEND_MOTION_FRAME_WHATSAPP else '❌ No'}")
+    log.info(f"📊 Publicar en dashboard: {'✅ Sí' if PUBLISH_DASHBOARD_EVENTS else '❌ No'}")
     log.info(f"⏱️  Cooldown: {COOLDOWN_SECONDS}s | Check: {CHECK_INTERVAL}s")
     log.info("=" * 60)
 
@@ -399,6 +443,8 @@ def run():
             }
             with open(f"{EVENTS_DIR}/metadata/{event_id}.json", "w") as f:
                 json.dump(event, f, indent=2, default=str)
+
+            publish_dashboard_event(event_id, timestamp, trigger_path, area, num_contours)
 
             if SEND_MOTION_FRAME_WHATSAPP:
                 send_whatsapp_motion_frame(event_id, timestamp, trigger_path)
