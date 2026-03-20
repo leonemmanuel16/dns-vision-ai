@@ -44,3 +44,8 @@ logs/
 data/clips/
 data/redis/
 data/db/
+heatmaps/daily/
+heatmaps/*.npy
+heatmaps/*.jpg
+events/
+image_bank/
