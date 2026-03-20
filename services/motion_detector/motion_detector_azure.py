@@ -31,6 +31,12 @@ FRAME_INTERVAL = float(os.environ.get("FRAME_INTERVAL", "1.0"))
 CHECK_INTERVAL = float(os.environ.get("CHECK_INTERVAL", "1.5"))
 RESIZE_WIDTH = int(os.environ.get("RESIZE_WIDTH", "640"))
 MIN_PERSON_CONFIDENCE = float(os.environ.get("MIN_PERSON_CONFIDENCE", "0.25"))
+STORE_ALL_MOTION = os.environ.get("STORE_ALL_MOTION", "true").lower() == "true"
+RECORD_VIDEO_CLIPS = os.environ.get("RECORD_VIDEO_CLIPS", "false").lower() == "true"
+CAPTURE_EXTRA_FRAMES = os.environ.get("CAPTURE_EXTRA_FRAMES", "true").lower() == "true"
+SEND_WHATSAPP_ALERTS = os.environ.get("SEND_WHATSAPP_ALERTS", "false").lower() == "true"
+USE_AZURE_VALIDATION = os.environ.get("USE_AZURE_VALIDATION", "false").lower() == "true"
+SEND_MOTION_FRAME_WHATSAPP = os.environ.get("SEND_MOTION_FRAME_WHATSAPP", "true").lower() == "true"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,6 +51,7 @@ def ensure_dirs():
         f"{EVENTS_DIR}/snapshots",
         f"{EVENTS_DIR}/metadata",
         f"{EVENTS_DIR}/videos",
+        f"{EVENTS_DIR}/azure",
         f"{BANK_DIR}/personas",
         f"{BANK_DIR}/descartados",
     ]:
@@ -83,6 +90,15 @@ def detect_motion(prev_gray, curr_gray):
     big_contours = [c for c in contours if cv2.contourArea(c) > 1500]
     total_area = sum(cv2.contourArea(c) for c in big_contours)
     return total_area > MOTION_THRESHOLD, total_area, len(big_contours)
+
+
+def save_azure_response(event_id, payload):
+    """Guarda respuesta cruda de Azure para auditoría/debug."""
+    try:
+        with open(f"{EVENTS_DIR}/azure/{event_id}.json", "w") as f:
+            json.dump(payload, f, indent=2, default=str)
+    except Exception as e:
+        log.warning(f"⚠️ No se pudo guardar respuesta Azure: {e}")
 
 
 def azure_check_person(image_bytes):
@@ -240,15 +256,45 @@ def send_whatsapp_alert(event_id, azure_info, timestamp, snapshot_path):
         log.warning(f"  ⚠️ WhatsApp error: {e}")
 
 
+def send_whatsapp_motion_frame(event_id, timestamp, snapshot_path):
+    """Envía frame de movimiento por WhatsApp (sin validación Azure)."""
+    try:
+        import subprocess
+        time_str = timestamp.strftime("%H:%M:%S")
+        date_str = timestamp.strftime("%d/%m/%Y")
+        msg = (
+            f"🎥 *MOVIMIENTO DETECTADO*\n\n"
+            f"📍 Cámara: {CAMERA_NAME}\n"
+            f"📅 {date_str} — {time_str}\n"
+            f"🆔 `{event_id}`"
+        )
+        result = subprocess.run([
+            "openclaw", "message", "send",
+            "--channel", "whatsapp",
+            "-t", "+5218186651436",
+            "-m", msg,
+            "--media", snapshot_path
+        ], timeout=15, capture_output=True, text=True)
+        if result.returncode == 0:
+            log.info("  📱 Frame de movimiento enviado por WhatsApp ✅")
+        else:
+            log.warning(f"  ⚠️ WhatsApp returncode {result.returncode}: {result.stderr[:200]}")
+    except Exception as e:
+        log.warning(f"  ⚠️ WhatsApp error: {e}")
+
+
 def run():
     ensure_dirs()
 
     log.info("=" * 60)
-    log.info("🎥 DNS Vision AI — Detector de Personas (Azure)")
+    log.info("🎥 DNS Vision AI — Detector de Movimiento")
     log.info(f"📍 Cámara: {CAMERA_NAME} ({CAMERA_IP})")
-    log.info(f"☁️  Azure: {'✅ Conectado' if AZURE_KEY else '❌ NO'}")
+    log.info(f"☁️  Azure validación: {'✅ Sí' if USE_AZURE_VALIDATION else '❌ No'}")
     log.info(f"⚙️  Motion threshold: {MOTION_THRESHOLD}")
-    log.info(f"👤 Min confianza persona: {MIN_PERSON_CONFIDENCE}")
+    log.info(f"💾 Guardar todo movimiento: {'✅ Sí' if STORE_ALL_MOTION else '❌ No'}")
+    log.info(f"🎬 Guardar clips 10s: {'✅ Sí' if RECORD_VIDEO_CLIPS else '❌ No'}")
+    log.info(f"📸 Frames extra: {'✅ Sí' if CAPTURE_EXTRA_FRAMES else '❌ No'}")
+    log.info(f"📱 Enviar frame por WhatsApp: {'✅ Sí' if SEND_MOTION_FRAME_WHATSAPP else '❌ No'}")
     log.info(f"⏱️  Cooldown: {COOLDOWN_SECONDS}s | Check: {CHECK_INTERVAL}s")
     log.info("=" * 60)
 
@@ -261,8 +307,8 @@ def run():
         return
     log.info(f"✅ Cámara OK: {test_img.shape[1]}x{test_img.shape[0]}")
 
-    # Test Azure
-    if AZURE_KEY:
+    # Test Azure (opcional)
+    if USE_AZURE_VALIDATION and AZURE_KEY:
         has_person, info = azure_check_person(test_data)
         if info:
             log.info(f"☁️ Azure OK: \"{info['caption']}\" | Persona: {'SÍ' if has_person else 'NO'}")
@@ -305,47 +351,36 @@ def run():
                 continue
 
             motion_count += 1
-            log.info(f"🔍 Movimiento #{motion_count} (área: {area:.0f}, contornos: {num_contours}) → Verificando con Azure...")
+            log.info(f"🔍 Movimiento #{motion_count} (área: {area:.0f}, contornos: {num_contours})")
 
-            # ─── PASO CLAVE: Azure verifica si es persona ───
-            has_person, azure_info = azure_check_person(img_data)
-            azure_calls += 1
-
-            if not has_person:
-                false_alarms += 1
-                caption = azure_info["caption"] if azure_info else "sin respuesta"
-                log.info(f"  ❌ No es persona: \"{caption}\" → Descartado (falsa alarma #{false_alarms})")
-
-                # Opcionalmente guardar descarte para debug
-                date_str = datetime.now().strftime("%Y-%m-%d")
-                discard_dir = f"{BANK_DIR}/descartados/{date_str}"
-                Path(discard_dir).mkdir(parents=True, exist_ok=True)
-                cv2.imwrite(f"{discard_dir}/discard_{motion_count}.jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 60])
-                continue
-
-            # ─── SÍ ES PERSONA → Capturar evento completo ───
             last_event_time = now
             event_count += 1
             timestamp = datetime.now()
-            event_id = f"{CAMERA_NAME}_{timestamp.strftime('%Y%m%d_%H%M%S')}_{event_count:04d}"
-
-            log.info(f"  🚨 ¡PERSONA DETECTADA! Evento #{event_count}: {event_id}")
-            log.info(f"  📝 Azure: \"{azure_info['caption']}\"")
-            log.info(f"  👥 Personas: {azure_info['persons']} (confianza ≥{MIN_PERSON_CONFIDENCE})")
-
-            # Guardar trigger
+            event_id = f"{CAMERA_NAME}_{timestamp.strftime('%Y%m%d_%H%M%S')}_motion_{motion_count:04d}"
             trigger_file = f"{event_id}_trigger.jpg"
-            cv2.imwrite(f"{EVENTS_DIR}/snapshots/{trigger_file}", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            trigger_path = f"{EVENTS_DIR}/snapshots/{trigger_file}"
+            cv2.imwrite(trigger_path, img, [cv2.IMWRITE_JPEG_QUALITY, 85])
 
-            # Grabar video clip
-            video_file = record_video_clip(opener, event_id, trigger_img=img)
+            azure_info = None
+            has_person = None
+            if USE_AZURE_VALIDATION and AZURE_KEY:
+                azure_event_id = f"{CAMERA_NAME}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_azure"
+                has_person, azure_info = azure_check_person(img_data)
+                azure_calls += 1
+                save_azure_response(azure_event_id, {
+                    "camera": CAMERA_NAME,
+                    "timestamp": datetime.now().isoformat(),
+                    "has_person": has_person,
+                    "azure_info": azure_info,
+                })
 
-            # Capturar 5 frames adicionales (post-video)
-            log.info(f"  📸 Capturando {FRAMES_PER_EVENT} frames...")
-            frames = capture_5_frames(opener, event_id)
-            frames.insert(0, trigger_file)
+            frames = [trigger_file]
+            video_file = None
+            if RECORD_VIDEO_CLIPS:
+                video_file = record_video_clip(opener, event_id, trigger_img=img)
+            if CAPTURE_EXTRA_FRAMES:
+                frames += capture_5_frames(opener, event_id)
 
-            # Guardar metadata
             event = {
                 "event_id": event_id,
                 "camera": CAMERA_NAME,
@@ -356,28 +391,20 @@ def run():
                 "frames": frames,
                 "frames_count": len(frames),
                 "video_clip": video_file,
-                "video_duration_seconds": VIDEO_DURATION,
-                "azure_caption": azure_info["caption"],
-                "persons_detected": azure_info["persons"],
-                "persons_detail": azure_info["persons_detail"],
-                "tags": azure_info["tags"],
-                "type": "persona",
+                "video_duration_seconds": VIDEO_DURATION if video_file else 0,
+                "azure_validation_enabled": USE_AZURE_VALIDATION,
+                "azure_has_person": has_person,
+                "azure_caption": (azure_info or {}).get("caption") if isinstance(azure_info, dict) else None,
+                "type": "movimiento",
             }
             with open(f"{EVENTS_DIR}/metadata/{event_id}.json", "w") as f:
                 json.dump(event, f, indent=2, default=str)
 
-            # Guardar en banco
-            save_to_bank(img, event_id, timestamp)
-            for i, fname in enumerate(frames[1:3]):  # primeros 2 extras al banco
-                extra_img, _ = grab_snapshot(opener)
-                if extra_img is not None:
-                    save_to_bank(extra_img, f"{event_id}_extra{i}", timestamp)
+            if SEND_MOTION_FRAME_WHATSAPP:
+                send_whatsapp_motion_frame(event_id, timestamp, trigger_path)
 
-            # ─── Notificación WhatsApp ───
-            send_whatsapp_alert(event_id, azure_info, timestamp, f"{EVENTS_DIR}/snapshots/{trigger_file}")
-
-            log.info(f"  ✅ Evento guardado: {len(frames)} frames + banco + metadata + WhatsApp")
-            log.info(f"  📊 Total: {event_count} eventos | {false_alarms} descartados | {azure_calls} Azure calls")
+            log.info(f"  ✅ Movimiento guardado: {trigger_file}")
+            log.info(f"  📊 Total: {event_count} movimientos | {azure_calls} Azure calls")
 
             # Stats cada 5 min
             if check_count % 200 == 0:
