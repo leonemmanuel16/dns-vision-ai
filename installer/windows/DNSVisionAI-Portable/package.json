@@ -1,0 +1,21 @@
+{
+  "name": "DNS Vision AI",
+  "version": "0.1.0",
+  "company": "DNS Data Network Solutions",
+  "build_date": "2026-03-20T14:05:04.977526",
+  "platform": "Windows",
+  "type": "portable",
+  "python_version": "3.8+",
+  "dependencies": [
+    "fastapi",
+    "opencv-python",
+    "ultralytics",
+    "torch",
+    "numpy"
+  ],
+  "services": [
+    "API Server (port 8000)",
+    "Motion Detector",
+    "Dashboard (port 3000)"
+  ]
+}

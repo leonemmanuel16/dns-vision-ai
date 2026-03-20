@@ -1,0 +1,22 @@
+{
+  "zones": [],
+  "lines": [
+    {
+      "id": "line_1774037020436",
+      "name": "conteo de personas ",
+      "start": {
+        "x": 0.43478260869565216,
+        "y": 0.4769230769230769
+      },
+      "end": {
+        "x": 0.553623188405797,
+        "y": 0.4641025641025641
+      },
+      "color": "#06b6d4",
+      "direction": "in",
+      "count_in": 0,
+      "count_out": 0,
+      "enabled": true
+    }
+  ]
+}

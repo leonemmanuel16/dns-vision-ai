@@ -1,0 +1,39 @@
+# DNS Vision AI - Windows Requirements
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+redis==5.0.1
+minio==7.1.17
+structlog==23.1.0
+pydantic==2.5.0
+python-multipart==0.0.6
+Pillow==10.0.1
+
+# Computer Vision
+opencv-python==4.8.1.78
+numpy==1.24.3
+
+# AI/ML
+ultralytics==8.0.196
+torch==2.1.0
+torchvision==0.16.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Windows specific
+pywin32==306
+pyinstaller==6.2.0
+
+# Security & Auth
+cryptography==41.0.7
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Network & HTTP
+requests==2.31.0
+urllib3==2.0.7
+websockets==12.0
+
+# Database & Storage
+alembic==1.13.1
+psycopg2-binary==2.9.7

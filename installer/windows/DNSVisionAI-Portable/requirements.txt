@@ -1,0 +1,25 @@
+# DNS Vision AI - Windows Requirements
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+pydantic==2.5.0
+python-multipart==0.0.6
+Pillow==10.0.1
+
+# Computer Vision
+opencv-python==4.8.1.78
+numpy==1.24.3
+
+# AI/ML - CPU optimized for wider compatibility
+ultralytics==8.0.196
+torch==2.1.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+torchvision==0.16.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Network & HTTP
+requests==2.31.0
+urllib3==2.0.7
+websockets==12.0
+
+# Optional GPU support (user can upgrade manually)
+# torch==2.1.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+# torchvision==0.16.0+cu118 --extra-index-url https://download.pytorch.org/whl/cu118

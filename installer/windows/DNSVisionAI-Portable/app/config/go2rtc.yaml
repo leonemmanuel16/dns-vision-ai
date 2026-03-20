@@ -1,0 +1,21 @@
+api:
+  listen: ":1984"
+  
+rtsp:
+  listen: ":8554"
+
+webrtc:
+  listen: ":8555"
+
+streams:
+  hikvision_principal:
+    - "rtsp://dns:admin12345@192.168.8.26:554/onvif1"
+
+  hikvision_substream:
+    - "rtsp://dns:admin12345@192.168.8.26:554/onvif2"
+
+  hikvision_fisheye_main:
+    - "rtsp://dns:admin12345@192.168.8.64:554/onvif1"
+
+  hikvision_fisheye_sub:
+    - "rtsp://dns:admin12345@192.168.8.64:554/onvif2"
