@@ -37,7 +37,7 @@ RECORD_VIDEO_CLIPS = os.environ.get("RECORD_VIDEO_CLIPS", "false").lower() == "t
 CAPTURE_EXTRA_FRAMES = os.environ.get("CAPTURE_EXTRA_FRAMES", "true").lower() == "true"
 SEND_WHATSAPP_ALERTS = os.environ.get("SEND_WHATSAPP_ALERTS", "false").lower() == "true"
 USE_AZURE_VALIDATION = os.environ.get("USE_AZURE_VALIDATION", "true").lower() == "true"
-SEND_MOTION_FRAME_WHATSAPP = os.environ.get("SEND_MOTION_FRAME_WHATSAPP", "true").lower() == "true"
+SEND_MOTION_FRAME_WHATSAPP = os.environ.get("SEND_MOTION_FRAME_WHATSAPP", "false").lower() == "true"
 ALERT_ONLY_IF_AZURE_PERSON = os.environ.get("ALERT_ONLY_IF_AZURE_PERSON", "true").lower() == "true"
 PUBLISH_DASHBOARD_EVENTS = os.environ.get("PUBLISH_DASHBOARD_EVENTS", "true").lower() == "true"
 INGEST_API_URL = os.environ.get("INGEST_API_URL", "http://127.0.0.1:8000/api/ingest/motion")

@@ -28,7 +28,7 @@ MOTION_THRESHOLD = int(os.environ.get("FISHEYE_MOTION_THRESHOLD", "8000"))
 COOLDOWN_SECONDS = int(os.environ.get("FISHEYE_COOLDOWN", "15"))
 CHECK_INTERVAL = float(os.environ.get("FISHEYE_CHECK_INTERVAL", "1.5"))
 RESIZE_WIDTH = int(os.environ.get("FISHEYE_RESIZE_WIDTH", "640"))
-SEND_WHATSAPP = os.environ.get("FISHEYE_SEND_WHATSAPP", "true").lower() == "true"
+SEND_WHATSAPP = os.environ.get("FISHEYE_SEND_WHATSAPP", "false").lower() == "true"
 
 logging.basicConfig(
     level=logging.INFO,
