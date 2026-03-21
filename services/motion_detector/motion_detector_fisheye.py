@@ -16,6 +16,20 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 
+# ─── Load Environment ───
+def load_env_file():
+    """Carga variables desde config/dns-vision.env"""
+    env_path = Path(__file__).parent.parent.parent / "config" / "dns-vision.env"
+    if env_path.exists():
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+
+load_env_file()
+
 # ─── Config ───
 CAMERA_IP = os.environ.get("FISHEYE_IP", "192.168.8.64")
 CAMERA_USER = os.environ.get("FISHEYE_USER", "dns")
