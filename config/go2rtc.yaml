@@ -1,6 +1,6 @@
 api:
   listen: ":1984"
-  
+
 rtsp:
   listen: ":8554"
 
@@ -8,14 +8,33 @@ webrtc:
   listen: ":8555"
 
 streams:
+  # Cámara principal (browser-friendly H264)
   hikvision_principal:
+    - "ffmpeg:rtsp://dns:admin12345@192.168.8.26:554/onvif1#video=h264#audio=pcmu"
+
+  # Fisheye completo (browser-friendly H264)
+  hikvision_fisheye_main:
+    - "ffmpeg:rtsp://dns:admin12345@192.168.8.64:554/onvif1#video=h264#audio=pcma"
+
+  # Fisheye desdoblado en 3 paneles (~120° c/u) estilo panorámico
+  hikvision_fisheye_120_a:
+    - "ffmpeg:rtsp://dns:admin12345@192.168.8.64:554/onvif1#video=h264#raw=-vf v360=fisheye:equirect:id_fov=180:ih_fov=180:yaw=0,pad=iw*3:ih:0:0:black,crop=iw/3:ih:0:0"
+
+  hikvision_fisheye_120_b:
+    - "ffmpeg:rtsp://dns:admin12345@192.168.8.64:554/onvif1#video=h264#raw=-vf v360=fisheye:equirect:id_fov=180:ih_fov=180:yaw=120,pad=iw*3:ih:0:0:black,crop=iw/3:ih:0:0"
+
+  hikvision_fisheye_120_c:
+    - "ffmpeg:rtsp://dns:admin12345@192.168.8.64:554/onvif1#video=h264#raw=-vf v360=fisheye:equirect:id_fov=180:ih_fov=180:yaw=-120,pad=iw*3:ih:0:0:black,crop=iw/3:ih:0:0"
+
+  # Raw cámara streams (debug)
+  hikvision_raw_main_826:
     - "rtsp://dns:admin12345@192.168.8.26:554/onvif1"
 
-  hikvision_substream:
+  hikvision_raw_sub_826:
     - "rtsp://dns:admin12345@192.168.8.26:554/onvif2"
 
-  hikvision_fisheye_main:
+  hikvision_raw_main_864:
     - "rtsp://dns:admin12345@192.168.8.64:554/onvif1"
 
-  hikvision_fisheye_sub:
+  hikvision_raw_sub_864:
     - "rtsp://dns:admin12345@192.168.8.64:554/onvif2"

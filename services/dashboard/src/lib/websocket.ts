@@ -1,6 +1,6 @@
 'use client'
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws'
+import { getWsBaseUrl } from './network'
 
 type EventHandler = (data: any) => void
 
@@ -13,7 +13,7 @@ class WebSocketClient {
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return
 
-    this.ws = new WebSocket(WS_URL)
+    this.ws = new WebSocket(getWsBaseUrl())
 
     this.ws.onopen = () => {
       console.log('WebSocket connected')

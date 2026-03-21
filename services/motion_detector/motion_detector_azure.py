@@ -51,6 +51,9 @@ RECORD_VIDEO_CLIPS = os.environ.get("RECORD_VIDEO_CLIPS", "false").lower() == "t
 CAPTURE_EXTRA_FRAMES = os.environ.get("CAPTURE_EXTRA_FRAMES", "true").lower() == "true"
 SEND_WHATSAPP_ALERTS = os.environ.get("SEND_WHATSAPP_ALERTS", "false").lower() == "true"
 USE_AZURE_VALIDATION = os.environ.get("USE_AZURE_VALIDATION", "false").lower() == "true"
+USE_YOLO_VALIDATION = os.environ.get("USE_YOLO_VALIDATION", "false").lower() == "true"
+YOLO_MODEL_NAME = os.environ.get("YOLO_MODEL", "yolo11n.pt")
+YOLO_CONF_THRESHOLD = float(os.environ.get("YOLO_CONF_THRESHOLD", "0.5"))
 SEND_MOTION_FRAME_WHATSAPP = os.environ.get("SEND_MOTION_FRAME_WHATSAPP", "false").lower() == "true"
 ALERT_ONLY_IF_AZURE_PERSON = os.environ.get("ALERT_ONLY_IF_AZURE_PERSON", "true").lower() == "true"
 PUBLISH_DASHBOARD_EVENTS = os.environ.get("PUBLISH_DASHBOARD_EVENTS", "true").lower() == "true"
@@ -63,6 +66,53 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 log = logging.getLogger("dns_vision")
+
+yolo_model = None
+
+def get_yolo_model():
+    global yolo_model
+    if yolo_model is not None:
+        return yolo_model
+    try:
+        from ultralytics import YOLO
+        yolo_model = YOLO(YOLO_MODEL_NAME)
+        log.info(f"🤖 YOLO cargado: {YOLO_MODEL_NAME}")
+    except Exception as e:
+        log.error(f"❌ No se pudo cargar YOLO: {e}")
+        yolo_model = None
+    return yolo_model
+
+
+def yolo_check_person(image):
+    """Validación local de persona con YOLO (sin Azure)."""
+    model = get_yolo_model()
+    if model is None:
+        return False, None
+
+    try:
+        results = model.predict(image, conf=YOLO_CONF_THRESHOLD, verbose=False)
+        persons = 0
+        detail = []
+        for r in results:
+            boxes = getattr(r, "boxes", None)
+            if boxes is None:
+                continue
+            for b in boxes:
+                cls_id = int(b.cls[0])
+                conf = float(b.conf[0])
+                if cls_id == 0 and conf >= YOLO_CONF_THRESHOLD:  # person class
+                    persons += 1
+                    xyxy = [float(x) for x in b.xyxy[0].tolist()]
+                    detail.append({"confidence": conf, "box": xyxy})
+
+        return persons > 0, {
+            "persons": persons,
+            "persons_detail": detail,
+            "source": "yolo",
+        }
+    except Exception as e:
+        log.error(f"❌ YOLO: {e}")
+        return False, None
 
 
 def ensure_dirs():
@@ -359,6 +409,7 @@ def run():
     log.info("🎥 DNS Vision AI — Detector de Movimiento")
     log.info(f"📍 Cámara: {CAMERA_NAME} ({CAMERA_IP})")
     log.info(f"☁️  Azure validación: {'✅ Sí' if USE_AZURE_VALIDATION else '❌ No'}")
+    log.info(f"🤖 YOLO validación local: {'✅ Sí' if USE_YOLO_VALIDATION else '❌ No'}")
     log.info(f"⚙️  Motion threshold: {MOTION_THRESHOLD}")
     log.info(f"💾 Guardar todo movimiento: {'✅ Sí' if STORE_ALL_MOTION else '❌ No'}")
     log.info(f"🎬 Guardar clips 10s: {'✅ Sí' if RECORD_VIDEO_CLIPS else '❌ No'}")
@@ -385,6 +436,14 @@ def run():
             log.info(f"☁️ Azure OK: \"{info['caption']}\" | Persona: {'SÍ' if has_person else 'NO'}")
         else:
             log.warning("⚠️ Azure no respondió en test")
+
+    # Test YOLO (opcional)
+    if USE_YOLO_VALIDATION:
+        has_person_yolo, info_yolo = yolo_check_person(test_img)
+        if info_yolo:
+            log.info(f"🤖 YOLO OK: personas={info_yolo.get('persons', 0)} | Persona: {'SÍ' if has_person_yolo else 'NO'}")
+        else:
+            log.warning("⚠️ YOLO no respondió en test")
 
     # Init motion
     small = cv2.resize(test_img, (RESIZE_WIDTH, int(test_img.shape[0] * RESIZE_WIDTH / test_img.shape[1])))
@@ -434,6 +493,7 @@ def run():
 
             azure_info = None
             has_person = None
+
             if USE_AZURE_VALIDATION and AZURE_KEY:
                 azure_event_id = f"{CAMERA_NAME}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_azure"
                 has_person, azure_info = azure_check_person(img_data)
@@ -444,6 +504,8 @@ def run():
                     "has_person": has_person,
                     "azure_info": azure_info,
                 })
+            elif USE_YOLO_VALIDATION:
+                has_person, azure_info = yolo_check_person(img)
 
             frames = [trigger_file]
             video_file = None
@@ -477,7 +539,6 @@ def run():
             if ALERT_ONLY_IF_AZURE_PERSON:
                 should_send_whatsapp = (
                     SEND_MOTION_FRAME_WHATSAPP and
-                    USE_AZURE_VALIDATION and
                     has_person is True
                 )
 

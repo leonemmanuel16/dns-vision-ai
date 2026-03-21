@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { getApiBaseUrl } from './network'
 
 interface FetchOptions extends RequestInit {
   requireAuth?: boolean
@@ -22,7 +22,8 @@ export async function apiFetch<T>(
     }
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const apiUrl = getApiBaseUrl()
+  const response = await fetch(`${apiUrl}${path}`, {
     headers,
     ...rest,
   })
@@ -32,7 +33,7 @@ export async function apiFetch<T>(
     const refreshed = await tryRefreshToken()
     if (refreshed) {
       headers['Authorization'] = `Bearer ${localStorage.getItem('access_token')}`
-      const retryResponse = await fetch(`${API_URL}${path}`, { headers, ...rest })
+      const retryResponse = await fetch(`${apiUrl}${path}`, { headers, ...rest })
       if (!retryResponse.ok) throw new Error(`API error: ${retryResponse.status}`)
       if (retryResponse.status === 204) return undefined as T
       return retryResponse.json()
@@ -58,7 +59,8 @@ async function tryRefreshToken(): Promise<boolean> {
   if (!refreshToken) return false
 
   try {
-    const response = await fetch(`${API_URL}/api/auth/refresh`, {
+    const apiUrl = getApiBaseUrl()
+    const response = await fetch(`${apiUrl}/api/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),

@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api'
 import { Camera } from '@/hooks/useCameras'
 import { VideoPlayer } from '@/components/VideoPlayer'
 import { PTZControls } from '@/components/PTZControls'
+import { sanitizeStreamName } from '@/lib/stream'
 import { EventTimeline } from '@/components/EventTimeline'
 import { useEvents } from '@/hooks/useEvents'
 import { Badge } from '@/components/ui/badge'
@@ -73,7 +74,7 @@ export default function CameraDetailPage() {
           <div className="relative aspect-video overflow-hidden rounded-lg border bg-black">
             {camera.is_online ? (
               <VideoPlayer
-                cameraName={camera.name.replace(/\s+/g, '_').toLowerCase()}
+                cameraName={sanitizeStreamName(camera.name)}
                 className="absolute inset-0"
               />
             ) : (

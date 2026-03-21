@@ -5,6 +5,7 @@ import { Camera } from '@/hooks/useCameras'
 import { VideoPlayer } from './VideoPlayer'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { sanitizeStreamName } from '@/lib/stream'
 
 interface CameraGridProps {
   cameras: Camera[]
@@ -29,7 +30,7 @@ export function CameraGrid({ cameras, columns = 3 }: CameraGridProps) {
           <div className="relative aspect-video bg-black">
             {camera.is_online ? (
               <VideoPlayer
-                cameraName={camera.name.replace(/\s+/g, '_').toLowerCase()}
+                cameraName={sanitizeStreamName(camera.name)}
                 className="absolute inset-0"
               />
             ) : (

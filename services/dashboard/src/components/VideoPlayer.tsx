@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const GO2RTC_URL = process.env.NEXT_PUBLIC_GO2RTC_URL || 'http://localhost:1984'
+import { getGo2rtcBaseUrl } from '@/lib/stream'
 
 interface VideoPlayerProps {
   cameraName: string
@@ -39,7 +39,8 @@ export function VideoPlayer({ cameraName, className }: VideoPlayerProps) {
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
 
-        const response = await fetch(`${GO2RTC_URL}/api/webrtc?src=${encodeURIComponent(cameraName)}`, {
+        const go2rtcUrl = getGo2rtcBaseUrl()
+        const response = await fetch(`${go2rtcUrl}/api/webrtc?src=${encodeURIComponent(cameraName)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/sdp' },
           body: offer.sdp,
@@ -57,7 +58,8 @@ export function VideoPlayer({ cameraName, className }: VideoPlayerProps) {
           setError(e.message)
           // Fallback to HLS
           if (video) {
-            const hlsUrl = `${GO2RTC_URL}/api/stream.m3u8?src=${encodeURIComponent(cameraName)}`
+            const go2rtcUrl = getGo2rtcBaseUrl()
+            const hlsUrl = `${go2rtcUrl}/api/stream.m3u8?src=${encodeURIComponent(cameraName)}`
             try {
               const Hls = (await import('hls.js')).default
               if (Hls.isSupported()) {
